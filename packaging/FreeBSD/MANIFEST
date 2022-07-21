@@ -1,0 +1,15 @@
+name: modulectomy
+version: %%VERSION_NUM%%
+origin: local/modulectomy
+comment: Opam graph visualization tool
+www: https://github.com/roburio/modulectomy
+maintainer: Robur <team@robur.coop>
+prefix: /usr/local
+licenselogic: single
+licenses: [ISCL]
+flatsize: %%FLATSIZE%%
+categories: [local]
+desc = <<EOD
+Graphing dependencies of opam packages in svg and dot
+
+EOD;
