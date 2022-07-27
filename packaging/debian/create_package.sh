@@ -13,16 +13,15 @@ tmpd=$basedir/_build/stage
 rootdir=$tmpd/rootdir
 bindir=$rootdir/usr/bin
 debiandir=$rootdir/DEBIAN
-libexecdir=$rootdir/usr/libexec
 
 trap 'rm -rf $tmpd' 0 INT EXIT
 
-mkdir -p "$debiandir" "$bindir" "$libexecdir" 
+mkdir -p "$debiandir" "$bindir"
 
 install "$bdir/modulectomy" "$bindir/modulectomy"
 
 ARCH=$(dpkg-architecture -q DEB_TARGET_ARCH)
 sed -i -e "s/^Architecture:.*/Architecture: ${ARCH}/" "$debiandir"/control
 
-dpkg-deb --build "$rootdir" "$basedir"/builder-web.deb
-echo 'bin: [ "builder-web.deb" ]' > "$basedir/builder-web.install"
+dpkg-deb --build "$rootdir" "$basedir"/modulectomy.deb
+echo 'bin: [ "modulectomy.deb" ]' > "$basedir/modulectomy.install"
