@@ -5,6 +5,7 @@ let debug = false
 
 type ty =
   | Elf
+  | Js
 
 let get_file (file, ty) = match ty with
   | Elf ->
@@ -13,6 +14,8 @@ let get_file (file, ty) = match ty with
         `Msg (Format.sprintf "The file %s is not a valid ELF binary." file)
     in
     CCResult.map_err f @@ Elf.get file
+  | Js ->
+    Ok (Jsoo.get file)
 
 let print_debug ~size ~tree =
   Printf.eprintf "treemap size: %Ld \n" size;
@@ -113,6 +116,7 @@ let squarify robur_defaults robur_css filter_small with_scale infos =
 
 let guess file =
   match Fpath.get_ext @@ Fpath.v file with
+  | ".js" -> Js
   | _ -> Elf
   | exception _ -> Elf
 
@@ -132,6 +136,11 @@ module Arg_aux = struct
       let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
       annot (fun _ -> Elf) @@ flatten Arg.(value & opt_all (list file) [] i)
     in
+    let js_args =
+      let doc = "Javascript filed compiled with $(b,js_of_ocaml). For better results, source maps should be available." in
+      let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"JS,..." ["js"] in
+      annot (fun _ -> Js) @@ flatten Arg.(value & opt_all (list file) [] i)
+    in
     let guess_args =
       let doc = "OCaml compiled files that need to be analyzed. Can be one of \
                  formats described in $(b,FORMATS). By default, the format is \
@@ -140,13 +149,13 @@ module Arg_aux = struct
       let i = Arg.info ~doc ~docv:"FILE" [] in
       annot guess Arg.(value & pos_all file [] i)
     in
-    let take_all elfs guesses =
-      let l = elfs @ guesses in
+    let take_all js elfs guesses =
+      let l = js @ elfs @ guesses in
       match l with
       | [] -> `Help (`Auto, None)
       | l -> `Ok l
     in
-    Term.(ret (const take_all $ elf_args $ guess_args))
+    Term.(ret (const take_all $ js_args $ elf_args $ guess_args))
 
   let filter_small =
     let doc = "Remove subtrees that are smaller than PCT" in
