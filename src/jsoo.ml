@@ -69,7 +69,7 @@ let make_posmap linepos (sourcemap : Source_map.t) =
   let add_binding posmap (map : Source_map.map) =
     let pos = linepos.(map.gen_line) + map.gen_col in
     let ori_source = get_source map in
-    let ori_name = CCOpt.map (fun x -> List.nth sourcemap.names x) map.ori_name in
+    let ori_name = CCOption.map (fun x -> List.nth sourcemap.names x) map.ori_name in
     let ori_pos = ori_source, map.ori_line, map.ori_col in
     PosMap.add pos (ori_name, ori_pos) posmap
   in
@@ -86,7 +86,7 @@ let lookup_ident = function
   | Javascript.S id -> id.name, id.loc
   | V c -> Code.Var.to_string c, N
 let get_name posmap id = 
-  let open CCOpt.Infix in
+  let open CCOption.Infix in
   id >>= fun id ->
   let name, loc = lookup_ident id in
   let ori_name = 
@@ -97,7 +97,7 @@ let get_name posmap id =
   ori_name <+> (Some name) 
   
 let get_position posmap id =
-  let open CCOpt.Infix in
+  let open CCOption.Infix in
   id >>= fun id ->
   let _, loc = lookup_ident id in
   pi_of_loc loc >>= fun pi ->
@@ -129,7 +129,7 @@ let info_of_js endpos posmap js : _ Iter.t =
       prevloc 
   in 
   let opt f (scope, prevloc) o k =
-    CCOpt.map_or ~default:prevloc (fun i -> f (scope, prevloc) i k) o
+    CCOption.map_or ~default:prevloc (fun i -> f (scope, prevloc) i k) o
   in
   let rec walk_source_elements a = list walk_source_element a
   and walk_source_element (scope, prevloc) (e, loc) k = match e with
@@ -175,7 +175,7 @@ let info_of_js endpos posmap js : _ Iter.t =
     | EFun (id, _, body, loc) ->
       let size = diff_loc loc endloc in
       mk scope Function size ?id k ;
-      let scope = scope @ CCOpt.to_list @@ get_name posmap id in
+      let scope = scope @ CCOption.to_list @@ get_name posmap id in
       let _ = walk_source_elements (scope, endloc) body k in
       loc
     | ECall (e, args, _) ->
@@ -188,13 +188,13 @@ let info_of_js endpos posmap js : _ Iter.t =
     | Some (e, loc) ->
       let prevloc = walk_expression (scope, prevloc) e k in
       let size = diff_loc loc prevloc in
-      (* let scope = scope @ CCOpt.to_list @@ get_name 0 posmap loc ~id in *)
+      (* let scope = scope @ CCOption.to_list @@ get_name 0 posmap loc ~id in *)
       mk scope Value size ~id k ;
       loc (* This sucks a bit *)
   and walk_function_declaration scope ((id, _, body, endloc), loc) k =
     let size = diff_loc loc endloc in
     mk scope Function size ~id k;
-    let scope = scope @ CCOpt.to_list @@ get_name posmap (Some id) in
+    let scope = scope @ CCOption.to_list @@ get_name posmap (Some id) in
     let _ = walk_source_elements (scope, endloc) body k in
     loc
   in
