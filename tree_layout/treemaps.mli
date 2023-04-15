@@ -14,7 +14,7 @@ open Common
 
 val layout :
   ?sub:(rectangle -> rectangle) ->
-  ?animate_areas:('a -> float list) ->
+  ?animate_areas:(('a -> float) list) ->
   area:('a -> float) ->
   children:('a -> 'a Iter.t) ->
   rectangle -> 'a Iter.t -> ('a * rectangle) Iter.t
@@ -26,7 +26,7 @@ val layout :
 *)
 
 val squarify :
-  ?animate_areas:('a -> float list) ->
+  ?animate_areas:(('a -> float) list) ->
   area:('a -> float) ->
   rectangle -> 'a Iter.t -> ('a * rectangle) Iter.t
 (** [squarify ~area rect l] takes a sequence of elements [l] and 

@@ -32,7 +32,7 @@ val layered :
 val treemap :
   ?m:(module Hashtbl.HashedType with type t = 'a tree) ->
   ?sub:(rectangle -> rectangle) ->
-  ?animate_areas:('a tree -> float list) ->
+  ?animate_areas:(('a tree -> float) list) ->
   area:('a tree -> float) ->
   Common.rectangle -> 'a tree Iter.t ->
   ('a * Common.rectangle) tree Iter.t

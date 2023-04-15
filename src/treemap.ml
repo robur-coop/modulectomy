@@ -92,7 +92,7 @@ module Animated = struct
           | None -> 0.
           | Some v -> v.size 
         in
-        area ~node_area node
+        area ~node_area 
       )
 
   let node_area v = v.main_node.size
@@ -148,7 +148,8 @@ module Animated = struct
   let of_trees trees =
     let l = tree_layout trees in
     let rect = rect_of_tree ~node_area l in
-    let trees = Tree_layout.treemap ~animate_areas ~area rect l in
+    let animate_areas = Iter.head l |> Option.map animate_areas in
+    let trees = Tree_layout.treemap ?animate_areas ~area rect l in
     { rect ; trees }
 
 end
