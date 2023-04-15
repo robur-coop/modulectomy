@@ -96,6 +96,7 @@ module Squarify = struct
     let place_rect k state elem =
       let updated = add ~area state elem in
       if worst updated <= worst state then
+      (* if worst updated >= worst state then *)
         updated
       else
         let new_rect = layout ~area state k in

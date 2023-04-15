@@ -18,23 +18,26 @@ type node = {
   data : Info.data
 }
 
-type t = {
+type 'node t = {
   rect : T.Common.rectangle ;
-  trees : (node * T.Common.rectangle) T.tree Iter.t ;
+  trees : ('node * T.Common.rectangle) T.tree Iter.t ;
 }
 
-let rec area = function
-  | Tree_layout.Node (x,[||]) -> x.size
+let rec area ~node_area = function
+  | Tree_layout.Node (v,[||]) -> node_area v
   | Node (v, a) ->
-    let s = areal @@ Iter.of_array a in
-    s +. v.size
+    let s = areal ~node_area @@ Iter.of_array a in
+    s +. node_area v
 
-and areal a = Iter.sumf @@ Iter.map area a
+and areal ~node_area a = Iter.sumf @@ Iter.map (area ~node_area) a
+
+let node_area v = v.size
 
 let rec to_tree_layout path (Info.T.T t) =
   Info.SMap.to_iter t
   |> Iter.map (node_to_tree_layout path)
-  |> Iter.sort ~cmp:(fun t1 t2 -> - (Float.compare (area t1) (area t2)))
+  |> Iter.sort ~cmp:(fun t1 t2 ->
+    -(Float.compare (area ~node_area t1) (area ~node_area t2)))
 
 and node_to_tree_layout path (label, {value; children}) =
   let new_path = path @ [label] in
@@ -53,8 +56,8 @@ and node_to_tree_layout path (label, {value; children}) =
 
 let ratio = 1.
 
-let rect_of_tree t : Tree_layout.Common.rectangle =
-  let a = areal t in
+let rect_of_tree ~node_area t : Tree_layout.Common.rectangle =
+  let a = areal ~node_area t in
   let h = sqrt (a/.ratio) in
   let w = ratio *. h in
   { p = { x = 0. ; y = 0. } ; w ; h }
@@ -67,8 +70,76 @@ let sub { Tree_layout.Common. p ; w ; h } =
 
 let of_tree l =
   let l = to_tree_layout [] l in
-  let rect = rect_of_tree l in
+  let rect = rect_of_tree ~node_area l in
+  let area = area ~node_area in
   { rect ; trees = Tree_layout.treemap ~area rect l}
+
+module Animated = struct 
+
+  type node_aux = {
+    main_node : node;
+    animation_nodes : node option list;
+  }
+
+  type node = node_aux
+
+  let node_area v = v.main_node.size
+
+  let area = area ~node_area
+
+  (** Note this is derived from the 'size, children' calculation in
+      'tree_layout_node'*)
+  let compute_size_aux size n_children = match size, n_children with
+    | (None | Some 0L), _ -> 0.
+    | s, 0 -> CCOption.map_or ~default:0. Int64.to_float s
+    | Some _, _ -> 0.
+  
+  let rec tree_layout_children ~animation_trees path (Info.T.T main_tree) = 
+      Info.SMap.to_iter main_tree
+      |> Iter.map (tree_layout_node ~animation_trees path)
+      |> Iter.sort ~cmp:(fun t1 t2 ->
+        - (Float.compare (area t1) (area t2)))
+
+  and tree_layout_node ~animation_trees path (label, {value; children}) =
+    let new_path = path @ [label] in
+    let a = tree_layout_children ~animation_trees new_path children in
+    let size, children = match value.Info.size, Iter.to_array a with
+      | (None | Some 0L), a -> 0., a
+      | s, [||] -> CCOption.map_or ~default:0. Int64.to_float s , [||]
+      | Some i, a ->
+        let size = Int64.to_float i in
+        let main_node =
+          { path = new_path ; label = "" ; size ; data = value } in
+        let animation_nodes = [] in (*< Note: we only animate leaves*)
+        let internal_node = T.Node ({ main_node; animation_nodes }, [||]) in
+        0., Array.append [|internal_node|] a 
+    in
+    let main_node = { path ; label ; size ; data = value } in
+    let animation_nodes =
+      animation_trees
+      |> List.map (fun (Info.T.T tree) ->
+        match Info.SMap.find_opt label tree with
+        | None -> None
+        | Some { value; children = Info.T.T children } ->
+          let n_children = Info.SMap.cardinal children in
+          let size = compute_size_aux value.Info.size n_children in
+          Some { path ; label ; size ; data = value }
+      )
+    in
+    Tree_layout.Node ({ main_node; animation_nodes }, children)
+
+  let tree_layout = function
+    | [] -> failwith "You need to pass at least one tree"
+    | main_tree :: animation_trees ->
+      tree_layout_children ~animation_trees [] main_tree
+
+  let of_trees trees =
+    let l = tree_layout trees in
+    let rect = rect_of_tree ~node_area l in
+    (*> goto make function work animated node-type *)
+    { rect ; trees = Tree_layout.treemap ~area rect l}
+
+end
 
 module Render = struct
   open Tyxml

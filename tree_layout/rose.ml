@@ -28,8 +28,7 @@ let layered ?m =
 
 let treemap_iter ?sub ~area =
   let children (Node (_, a)) k = Array.iter k a in
-  Treemaps.layout ?sub
-    ~children ~area
+  Treemaps.layout ?sub ~children ~area
 
 let rec decorate f (Node (i,a) as t) =
   Node ((i, f t), Array.map (decorate f) a)
