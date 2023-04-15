@@ -2,6 +2,7 @@
  (name tree_layout)
  (public_name modulectomy.tree_layout)
  (synopsis "Algorithms to layout trees in a pretty manner")
+ (flags (:standard (-w -27-26)))
  (ocamlopt_flags (:standard -O3))
  (libraries iter)
 )

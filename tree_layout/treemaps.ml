@@ -92,7 +92,7 @@ module Squarify = struct
         ()
       end
       
-  let squarify ~area rect l : _ Iter.t =
+  let squarify ?animate_areas ~area rect l : _ Iter.t =
     let place_rect k state elem =
       let updated = add ~area state elem in
       if worst updated <= worst state then
@@ -113,16 +113,16 @@ end
 
 let squarify = Squarify.squarify
 
-let layout ?(sub=fun x -> x) ~area ~children rect0 l0 : _ Iter.t =
+let layout ?(sub=fun x -> x) ?animate_areas ~area ~children rect0 l0 : _ Iter.t =
   let rec go_level k (v, rect) =
     k (v, rect) ;
     let rect = sub rect in
     let cl = children v in
-    let l = squarify ~area rect cl in 
+    let l = squarify ?animate_areas ~area rect cl in 
     Iter.iter (go_level k) l
   in
   fun k ->
-    let l = squarify ~area rect0 l0 in
+    let l = squarify ?animate_areas ~area rect0 l0 in
     Iter.iter (go_level k) l
 
 (*

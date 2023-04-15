@@ -83,6 +83,18 @@ module Animated = struct
 
   type node = node_aux
 
+  let animate_areas node = match node with
+    | Tree_layout.Node (v, _) ->
+      let len = List.length v.animation_nodes in
+      List.init len (fun i ->
+        let node_area v =
+          match List.nth v.animation_nodes i with
+          | None -> 0.
+          | Some v -> v.size 
+        in
+        area ~node_area node
+      )
+
   let node_area v = v.main_node.size
 
   let area = area ~node_area
@@ -136,8 +148,8 @@ module Animated = struct
   let of_trees trees =
     let l = tree_layout trees in
     let rect = rect_of_tree ~node_area l in
-    (*> goto make function work animated node-type *)
-    { rect ; trees = Tree_layout.treemap ~area rect l}
+    let trees = Tree_layout.treemap ~animate_areas ~area rect l in
+    { rect ; trees }
 
 end
 
