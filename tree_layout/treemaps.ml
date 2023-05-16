@@ -67,7 +67,7 @@ module Squarify = struct
   (** Layout a solution in a given rectangle.
       Iterate on the list of laid out elements (by continuation [k])
       and return the new state. *)
-  let layout ~area ~animate_areas sol k =
+  let layout ~area sol k =
     let total_len = length sol.dir sol.rect in
     let side = sol.area /. total_len in
     let new_rect = cut_rect (opp sol.dir) sol.rect side in
@@ -83,15 +83,29 @@ module Squarify = struct
     (* assert (_equal_pos _pos @@ mv_pos sol.dir sol.rect.p total_len); *)
     new_rect
 
-  let layout_remaining ~area ~animate_areas (sol, anim_sols) k =
+  let layout_remaining ~area (sol, anim_sols) k =
     match sol.elements with
     | [] -> ()
     | _ -> begin
-        let _s = layout ~area ~animate_areas sol k in
+        let _s = layout ~area sol k in
         (*assert (_s.w *. _s.h >= -. _threshold);*)
         ()
       end
-      
+
+  let update_anim_states ~anim_states ~animate_areas ~elem action =
+    List.combine anim_states animate_areas
+    |> List.map (fun (state, area) ->
+      let state = match action with
+        | `Append -> state
+        | `Layout ->
+          (*> goto what to do about k?*)
+          let k = failwith "todo" in
+          let new_rect = layout ~area state k in
+          init new_rect
+      in
+      add ~area state elem
+    )
+
   let squarify ?animate_areas ~area rect l : _ Iter.t =
     let animate_areas =
       Option.to_list animate_areas |> List.flatten
@@ -99,18 +113,24 @@ module Squarify = struct
     let place_rect k (state, anim_states) elem =
       let updated = add ~area state elem in
       if worst updated <= worst state then
-        updated, failwith "todo"
+        let anim_states =
+          update_anim_states ~anim_states ~animate_areas ~elem `Append in
+        updated, anim_states
       else
-        let new_rect = layout ~area ~animate_areas state k in
+        let new_rect = layout ~area state k in
         let new_state = init new_rect in
-        add ~area new_state elem, failwith "todo"
+        let updated = add ~area new_state elem in
+        let anim_states =
+          update_anim_states ~anim_states ~animate_areas ~elem `Layout in
+        updated, anim_states
     in
     let init_state = init rect in
     let init_animation_states = List.map (fun _ -> init_state) animate_areas in
     let init_states = init_state, init_animation_states in
     fun k ->
       let state_final = Iter.fold (place_rect k) init_states l in
-      layout_remaining ~area ~animate_areas state_final k ;
+      (*> goto also do this for anim_states*)
+      layout_remaining ~area state_final k ;
       ()
 
 end
@@ -118,8 +138,8 @@ end
 let squarify = Squarify.squarify
 
 let layout ?(sub=fun x -> x) ?animate_areas ~area ~children rect0 l0 : _ Iter.t =
-  let rec go_level k (v, rect) =
-    k (v, rect) ;
+  let rec go_level k (v, rect, anim_rects) =
+    k (v, rect, anim_rects) ;
     let rect = sub rect in
     let cl = children v in
     let l = squarify ?animate_areas ~area rect cl in 
