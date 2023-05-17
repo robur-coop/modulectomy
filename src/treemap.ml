@@ -18,9 +18,11 @@ type node = {
   data : Info.data
 }
 
+type 'a nonempty_list = 'a * 'a list
+
 type 'node t = {
   rect : T.Common.rectangle ;
-  trees : ('node * T.Common.rectangle) T.tree Iter.t ;
+  trees : ('node * T.Common.rectangle nonempty_list) T.tree Iter.t ;
 }
 
 let rec area ~node_area = function
@@ -72,7 +74,7 @@ let of_tree l =
   let l = to_tree_layout [] l in
   let rect = rect_of_tree ~node_area l in
   let area = area ~node_area in
-  { rect ; trees = Tree_layout.treemap ~area rect l}
+  { rect ; trees = Tree_layout.treemap ~area rect l }
 
 module Animated = struct 
 

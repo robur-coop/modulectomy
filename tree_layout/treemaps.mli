@@ -17,7 +17,7 @@ val layout :
   ?animate_areas:(('a -> float) list) ->
   area:('a -> float) ->
   children:('a -> 'a Iter.t) ->
-  rectangle -> 'a Iter.t -> ('a * rectangle * rectangle list) Iter.t
+  rectangle -> 'a Iter.t -> ('a * (rectangle * rectangle list)) Iter.t
 (** [layout ~area ~children rect trees] computes a squarified treemap of [trees]
     and return a sequence of subtrees and their positions and animation
     positions.
@@ -29,7 +29,7 @@ val layout :
 val squarify :
   ?animate_areas:(('a -> float) list) ->
   area:('a -> float) ->
-  rectangle -> 'a Iter.t -> ('a * rectangle * rectangle list) Iter.t
+  rectangle -> 'a Iter.t -> ('a * (rectangle * rectangle list)) Iter.t
 (** [squarify ~area rect l] takes a sequence of elements [l] and 
     decorate them with positions and animation positions.
 

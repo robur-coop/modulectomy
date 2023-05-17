@@ -34,5 +34,7 @@ val treemap :
   ?sub:(rectangle -> rectangle) ->
   ?animate_areas:(('a tree -> float) list) ->
   area:('a tree -> float) ->
-  Common.rectangle -> 'a tree Iter.t ->
-  ('a * Common.rectangle) tree Iter.t
+  Common.rectangle ->
+  'a tree Iter.t ->
+  (* ('a * Common.rectangle) tree Iter.t *)
+  ('a * (Common.rectangle * Common.rectangle list)) tree Iter.t

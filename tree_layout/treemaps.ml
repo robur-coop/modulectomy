@@ -25,11 +25,11 @@ module Squarify = struct
     biggest : float ;
   }
 
-  let add ~area sol x =
-    let a = area x in {
+  let add ~area ~elem sol =
+    let a = area elem in {
       rect = sol.rect ;
       dir = sol.dir ;
-      elements = x :: sol.elements ;
+      elements = elem :: sol.elements ;
       area = a +. sol.area ;
       smallest = min a sol.smallest ;
       biggest = max a sol.biggest ;
@@ -63,70 +63,108 @@ module Squarify = struct
     | Horizontal -> { p ; h ; w = w -. side }
     | Vertical -> { p ; w ; h = h -. side }
 
+  module IMap = Map.Make(Int)
 
   (** Layout a solution in a given rectangle.
       Iterate on the list of laid out elements (by continuation [k])
       and return the new state. *)
-  let layout ~area sol k =
-    let total_len = length sol.dir sol.rect in
-    let side = sol.area /. total_len in
-    let new_rect = cut_rect (opp sol.dir) sol.rect side in
-
-    let layout_elem pos elem = 
-      let len = total_len *. area elem /. sol.area in
-      let rect = mk_rect sol.dir side pos len in
-      let pos = mv_pos sol.dir pos len in
-      k (elem, rect);
-      pos
+  let layout ~areas ~states k =
+    let init =
+      let outlaid_rects = IMap.empty in
+      let new_rects = [] in
+      new_rects, outlaid_rects
     in
-    let _pos = List.fold_left layout_elem sol.rect.p (List.rev sol.elements) in
-    (* assert (_equal_pos _pos @@ mv_pos sol.dir sol.rect.p total_len); *)
-    new_rect
+    let new_rects, outlaid_rects = 
+      List.combine states areas
+      |> List.fold_left (fun (new_rects, outlaid_rects) (state, area) ->
+        let total_len = length state.dir state.rect in
+        let side = state.area /. total_len in
+        let new_rect = cut_rect (opp state.dir) state.rect side in
 
-  let layout_remaining ~area (sol, anim_sols) k =
-    match sol.elements with
-    | [] -> ()
-    | _ -> begin
-        let _s = layout ~area sol k in
-        (*assert (_s.w *. _s.h >= -. _threshold);*)
-        ()
-      end
+        let layout_elem (i, pos, rects) elem = 
+          let len = total_len *. area elem /. state.area in
+          let rect = mk_rect state.dir side pos len in
+          let pos = mv_pos state.dir pos len in
+          let rects = rects |> IMap.update i (function
+            | None -> Some (elem, [ rect ])
+            | Some (_elem, rects) ->
+              (*> Note: elem = _elem, as index of elements are the same across
+                  states (the primary state contains all possible elements)*)
+              Some (elem, rect :: rects)
+          ) in
+          (succ i, pos, rects)
+        in
+        let _, _pos, outlaid_rects =
+          let init = 0, state.rect.p, outlaid_rects in
+          state.elements
+          |> List.rev (*< Note: this is done to lay out in the right direction*)
+          |> List.fold_left layout_elem init
+        in
+        (* assert (_equal_pos _pos @@ mv_pos state.dir state.rect.p total_len); *)
+        let new_rects = new_rect :: new_rects in
+        new_rects, outlaid_rects
+      ) init
+    in
+    let new_rects = List.rev new_rects in
+    let () =
+      outlaid_rects
+      |> IMap.iter (fun _i (elem, rects) ->
+        let rects = List.rev rects in
+        match rects with
+        | rect :: anim_rects -> k (elem, (rect, anim_rects))
+        | [] -> failwith "Treemaps.layout: There should always be an outlaid \
+                          rect"
+      )
+    in
+    new_rects
 
-  let update_anim_states ~anim_states ~animate_areas ~elem action =
-    List.combine anim_states animate_areas
-    |> List.map (fun (state, area) ->
-      let state = match action with
-        | `Append -> state
-        | `Layout ->
-          (*> goto what to do about k?*)
-          let k = failwith "todo" in
-          let new_rect = layout ~area state k in
-          init new_rect
-      in
-      add ~area state elem
-    )
+
+  (*goto implement based on main + animation states *)
+  let layout_remaining ~area states k =
+    ()
+    (* match state.elements with *)
+    (* | [] -> () *)
+    (* | _ -> begin *)
+    (*     let _s = layout ~area sol k in *)
+    (*     (\*assert (_s.w *. _s.h >= -. _threshold);*\) *)
+    (*     () *)
+    (*   end *)
+
+  (* let update_anim_states ~anim_states ~animate_areas ~elem action = *)
+  (*   List.combine anim_states animate_areas *)
+  (*   |> List.map (fun (state, area) -> *)
+  (*     let state = match action with *)
+  (*       | `Append -> state *)
+  (*       | `Layout -> *)
+  (*         (\*> goto what to do about k?*\) *)
+  (*         let k = failwith "todo" in *)
+  (*         let new_rect = layout ~area state k in *)
+  (*         init new_rect *)
+  (*     in *)
+  (*     add ~area ~elem state  *)
+  (*   ) *)
 
   let squarify ?animate_areas ~area rect l : _ Iter.t =
     let animate_areas =
       Option.to_list animate_areas |> List.flatten
     in
-    let place_rect k (state, anim_states) elem =
-      let updated = add ~area state elem in
-      if worst updated <= worst state then
-        let anim_states =
-          update_anim_states ~anim_states ~animate_areas ~elem `Append in
-        updated, anim_states
-      else
-        let new_rect = layout ~area state k in
-        let new_state = init new_rect in
-        let updated = add ~area new_state elem in
-        let anim_states =
-          update_anim_states ~anim_states ~animate_areas ~elem `Layout in
-        updated, anim_states
+    let areas = area :: animate_areas in
+    let place_rect k states elem =
+      match states with
+      | state :: anim_states -> 
+        let new_state = add ~area ~elem state in
+        if worst new_state <= worst state then
+          let anim_states = anim_states |> List.map (add ~area ~elem) in
+          new_state :: anim_states
+        else
+          let new_rects = layout ~areas ~states k in
+          let new_states = new_rects |> List.map init in
+          new_states |> List.map (add ~area ~elem)
+      | [] -> assert false (*Won't happen*)
     in
     let init_state = init rect in
     let init_animation_states = List.map (fun _ -> init_state) animate_areas in
-    let init_states = init_state, init_animation_states in
+    let init_states = init_state :: init_animation_states in
     fun k ->
       let state_final = Iter.fold (place_rect k) init_states l in
       (*> goto also do this for anim_states*)
@@ -138,8 +176,8 @@ end
 let squarify = Squarify.squarify
 
 let layout ?(sub=fun x -> x) ?animate_areas ~area ~children rect0 l0 : _ Iter.t =
-  let rec go_level k (v, rect, anim_rects) =
-    k (v, rect, anim_rects) ;
+  let rec go_level k (v, (rect, anim_rects)) =
+    k (v, (rect, anim_rects)) ;
     let rect = sub rect in
     let cl = children v in
     let l = squarify ?animate_areas ~area rect cl in 
