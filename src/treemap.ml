@@ -279,13 +279,40 @@ module Render = struct
         ] []
       ]
 
-    let make_rect { p ; w ; h } =
+    let nonempty_list_to_list (head, tail) = head :: tail
+    
+    let make_values anim extract =
+      let values =
+        anim
+        |> nonempty_list_to_list
+        |> List.map extract in
+      (*> Note: Tyxml is buggy - should be semicolon separated*)
+      let values_str = values |> String.concat ";" in
+      Svg.Unsafe.string_attrib "values" values_str
+
+    let make_anim anim attr extract = Svg.(
+      (*> Note: Tyxml havn't merged my PR fixing this yet*)
+      Svg.Unsafe.node "animate" ~a:[
+        a_attributeName attr;
+        a_dur "4s";
+        make_values anim extract;
+      ] []
+    ) 
+
+    let make_rect anim =
       Svg.[
         rect ~a:[
           a_class [scoped_class "fill"];
-          a_x (p.x, None) ; a_y (p.y, None) ;
-          a_width (w, None) ; a_height (h, None) ;
-        ] []
+          (* a_x (p.x, None); *)
+          (* a_y (p.y, None); *)
+          (* a_width (w, None); *)
+          (* a_height (h, None); *)
+        ] [
+          make_anim anim "x" (fun rect -> rect.p.x |> Float.to_string);
+          make_anim anim "y" (fun rect -> rect.p.y |> Float.to_string);
+          make_anim anim "width" (fun rect -> rect.w |> Float.to_string);
+          make_anim anim "height" (fun rect -> rect.h |> Float.to_string);
+        ]
       ]
 
     let a_center_position { p ; w ; h } = Svg.[
@@ -301,12 +328,13 @@ module Render = struct
       a_text_anchor `Start;
     ]
 
-    let leaf ~info (rect_v, anim_rects) =
+    let leaf ~info (rect_v, anim_rects as anim) =
       (*goo*)
       (*goto render anim_rects as animations*)
       (* let angle = -.180.*.tanh (rect_v.h/.rect_v.w)/.Float.pi in
        * let center = rect_v.p.x+.rect_v.w/.2. , rect_v.p.y+.rect_v.h/.2. in *)
-      let label = 
+      let label =
+        (*> goto animate*)
         Svg.[text ~a:(
           a_class [scoped_class "label"] ::
           a_dominant_baseline `Central ::
@@ -316,27 +344,29 @@ module Render = struct
         ) [txt @@ info.label] ;
         ]
       in
+      (*> goto animate*)
       let title = title_of_info info @@ area_of_pos rect_v in
+      (*> goto animate*)
       Svg.g
         ~a:[Svg.a_class (scoped_class "leaf" :: class_from_info info)]
-        (title :: make_rect rect_v @ label @ make_border rect_v)
+        (title :: make_rect anim @ label @ (*> goto animate*) make_border rect_v)
 
-    let header_node ~info pos =
-      let header_pos = {pos with h = pos.h/.13.} in
+    let header_node ~info (rect_v, anim_rects as anim) =
+      let header_pos = {rect_v with h = rect_v.h/.13.} in
       let label =
         Svg.[text ~a:(
           a_class [scoped_class "header"] ::
           a_dominant_baseline `Hanging ::
           (a_font_size @@ string_of_float @@ header_pos.h) ::
-          a_left_position pos.p;
+          a_left_position rect_v.p;
         ) [txt @@ info.label] ;
         ]
       in
-      make_rect pos @ label
+      make_rect anim @ label
 
-    let node ~info (rect_v, anim_rects) children =
+    let node ~info (rect_v, anim_rects as anim) children =
       let title = title_of_info info @@ area_of_pos rect_v in
-      let header = header_node ~info rect_v in
+      let header = header_node ~info anim in
       Svg.g
         ~a:[Svg.a_class (scoped_class "node" :: class_from_info info)]
         (title :: header @ children @ make_border rect_v)
