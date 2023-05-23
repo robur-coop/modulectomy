@@ -301,23 +301,25 @@ module Render = struct
       a_text_anchor `Start;
     ]
 
-    let leaf ~info pos =
-      (* let angle = -.180.*.tanh (pos.h/.pos.w)/.Float.pi in
-       * let center = pos.p.x+.pos.w/.2. , pos.p.y+.pos.h/.2. in *)
+    let leaf ~info (rect_v, anim_rects) =
+      (*goo*)
+      (*goto render anim_rects as animations*)
+      (* let angle = -.180.*.tanh (rect_v.h/.rect_v.w)/.Float.pi in
+       * let center = rect_v.p.x+.rect_v.w/.2. , rect_v.p.y+.rect_v.h/.2. in *)
       let label = 
         Svg.[text ~a:(
           a_class [scoped_class "label"] ::
           a_dominant_baseline `Central ::
           (* a_transform [`Rotate ((angle, None), Some center)] :: *)
-          (a_font_size @@ string_of_float @@ (pos.w+.pos.h)/.20.) ::
-          a_center_position pos;
+          (a_font_size @@ string_of_float @@ (rect_v.w +. rect_v.h)/.20.) ::
+          a_center_position rect_v;
         ) [txt @@ info.label] ;
         ]
       in
-      let title = title_of_info info @@ area_of_pos pos in
+      let title = title_of_info info @@ area_of_pos rect_v in
       Svg.g
         ~a:[Svg.a_class (scoped_class "leaf" :: class_from_info info)]
-        (title :: make_rect pos @ label @ make_border pos)
+        (title :: make_rect rect_v @ label @ make_border rect_v)
 
     let header_node ~info pos =
       let header_pos = {pos with h = pos.h/.13.} in
@@ -332,12 +334,12 @@ module Render = struct
       in
       make_rect pos @ label
 
-    let node ~info pos children =
-      let title = title_of_info info @@ area_of_pos pos in
-      let header = header_node ~info pos in
+    let node ~info (rect_v, anim_rects) children =
+      let title = title_of_info info @@ area_of_pos rect_v in
+      let header = header_node ~info rect_v in
       Svg.g
         ~a:[Svg.a_class (scoped_class "node" :: class_from_info info)]
-        (title :: header @ children @ make_border pos)
+        (title :: header @ children @ make_border rect_v)
 
     let list_map_array f a = List.map f @@ Array.to_list a
     let list_flatmap_array f a =
@@ -345,7 +347,7 @@ module Render = struct
 
     let viewbox_of_rect { p ; w ; h } = Svg.a_viewBox (p.x, p.y, w, h)
 
-    let rec svg_rect level (T.Node ((info,r), a)) =
+    let rec svg_rect level (T.Node ((info, r), a)) =
       if Array.length a = 0 then
         let eps = 0.0001 in
         if info.size < eps then None else
