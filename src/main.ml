@@ -91,7 +91,9 @@ let squarify robur_defaults robur_css filter_small with_scale infos =
     |> Info.partition_subtrees node_big_enough
   in
   let override_css = default_css_overrides in
-  let treemap = Treemap.of_tree infos in
+  (*> goto pass a list of trees from CLI (--elf2, --elf3, ..)*)
+  (*> goto this should become default when it works (i.e. remove 'Treemap.of_trees')*)
+  let treemap = Treemap.Animated.of_trees [ infos ] in
   let html = match with_scale with
     | None -> Treemap.to_html ?override_css treemap
     | Some elf_size ->

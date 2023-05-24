@@ -403,8 +403,12 @@ module Render = struct
     let viewbox_of_rect { p ; w ; h } = Svg.a_viewBox (p.x, p.y, w, h)
 
     let rec svg_rect level (T.Node ((info, r), a)) =
+      (*> xxx(rand): We don't need the extra info on other animated trees for
+          now. Later it could become relevant. *)
+      let info = info.Animated.main_node in
       if Array.length a = 0 then
         let eps = 0.0001 in
+        (*> goto think if this makes sense*)
         if info.size < eps then None else
           Some (leaf ~info r)
       else
