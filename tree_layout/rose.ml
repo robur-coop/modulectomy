@@ -49,6 +49,7 @@ let treemap
   in
   fun ?sub ?animate_areas ~area r t -> 
     let h = hash_of_iter @@ treemap_iter ?sub ?animate_areas ~area r t in
+    (*> xxx(rand): Warning: the iters shall be of same length*)
     Iter.map (decorate (H.find h)) t
 
 (*

@@ -175,6 +175,7 @@ module Render = struct
     Svg.Unsafe.node "animate" ~a:[
       a_attributeName attr;
       a_dur "4s";
+      a_repeatCount "indefinite";
       make_values anim extract;
     ] []
   ) 

@@ -118,17 +118,18 @@ module Squarify = struct
     in
     new_rects
 
-
-  (*goto implement based on main + animation states *)
-  let layout_remaining ~area states k =
-    ()
-    (* match state.elements with *)
-    (* | [] -> () *)
-    (* | _ -> begin *)
-    (*     let _s = layout ~area sol k in *)
-    (*     (\*assert (_s.w *. _s.h >= -. _threshold);*\) *)
-    (*     () *)
-    (*   end *)
+  let layout_remaining ~areas states k =
+    match states with
+    | [] -> ()
+    | main_state :: _ -> 
+      begin match main_state.elements with
+        | [] -> ()
+        | _ -> begin
+            let _s = layout ~areas ~states k in
+            (*assert (_s.w *. _s.h >= -. _threshold);*)
+            ()
+          end
+      end
 
   (* let update_anim_states ~anim_states ~animate_areas ~elem action = *)
   (*   List.combine anim_states animate_areas *)
@@ -166,9 +167,9 @@ module Squarify = struct
     let init_animation_states = List.map (fun _ -> init_state) animate_areas in
     let init_states = init_state :: init_animation_states in
     fun k ->
-      let state_final = Iter.fold (place_rect k) init_states l in
+      let states_final = Iter.fold (place_rect k) init_states l in
       (*> goto also do this for anim_states*)
-      layout_remaining ~area state_final k ;
+      layout_remaining ~areas states_final k ;
       ()
 
 end
