@@ -183,11 +183,17 @@ let squarify_files
       get_all t >|= fun i' ->
       Iter.append i i'
   in
-  get_all files >|= fun i ->
-  squarify robur_defaults robur_css filter_small with_scale i
+  try
+    get_all files >|= fun i ->
+    squarify robur_defaults robur_css filter_small with_scale i
+  with exn ->
+    Printexc.print_backtrace stderr;
+    Format.eprintf "%s\n%!" (Printexc.to_string exn);
+    exit 1
 
 let main_term =
   let open Cmdliner in
+  Printexc.record_backtrace true;
   let doc = "Dissect OCaml compiled programs, and weight their content." in
   let version = Fmt.str "%d" Treemap.visualization_version in
   let info = Cmd.info ~doc ~version "modulectomy" in
