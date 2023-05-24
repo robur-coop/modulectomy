@@ -161,11 +161,14 @@ module Render = struct
 
   let nonempty_list_to_list (head, tail) = head :: tail
 
+  let make_anim_value = Printf.sprintf "%.5f"
+    
   let make_values anim extract =
     let values =
       anim
       |> nonempty_list_to_list
-      |> List.map extract in
+      |> List.map CCFun.(extract%>make_anim_value)
+    in
     (*> Note: Tyxml is buggy - should be semicolon separated*)
     let values_str = values |> String.concat ";" in
     Svg.Unsafe.string_attrib "values" values_str
@@ -300,10 +303,10 @@ module Render = struct
           (* a_height (h, None) ; *)
           a_stroke_width (stroke, None) ;
         ] [
-          make_anim anim "x" (fun rect -> rect.p.x |> Float.to_string);
-          make_anim anim "y" (fun rect -> rect.p.y |> Float.to_string);
-          make_anim anim "width" (fun rect -> rect.w |> Float.to_string);
-          make_anim anim "height" (fun rect -> rect.h |> Float.to_string);
+          make_anim anim "x" (fun rect -> rect.p.x);
+          make_anim anim "y" (fun rect -> rect.p.y);
+          make_anim anim "width" (fun rect -> rect.w);
+          make_anim anim "height" (fun rect -> rect.h);
         ]
       ]
 
@@ -316,10 +319,10 @@ module Render = struct
           (* a_width (w, None); *)
           (* a_height (h, None); *)
         ] [
-          make_anim anim "x" (fun rect -> rect.p.x |> Float.to_string);
-          make_anim anim "y" (fun rect -> rect.p.y |> Float.to_string);
-          make_anim anim "width" (fun rect -> rect.w |> Float.to_string);
-          make_anim anim "height" (fun rect -> rect.h |> Float.to_string);
+          make_anim anim "x" (fun rect -> rect.p.x);
+          make_anim anim "y" (fun rect -> rect.p.y);
+          make_anim anim "width" (fun rect -> rect.w);
+          make_anim anim "height" (fun rect -> rect.h);
         ]
       ]
 
@@ -349,12 +352,9 @@ module Render = struct
           []
         ) [
           txt @@ info.label;
-          make_anim anim "font-size" (fun rect ->
-            (rect.w +. rect.h)/.20. |> Float.to_string);
-          make_anim anim "x" (fun rect ->
-            rect.p.x +. rect.w/.2. |> Float.to_string);
-          make_anim anim "y" (fun rect ->
-            rect.p.y +. rect.h/.2. |> Float.to_string);
+          make_anim anim "font-size" (fun rect -> (rect.w +. rect.h)/.20.);
+          make_anim anim "x" (fun rect -> rect.p.x +. rect.w/.2.);
+          make_anim anim "y" (fun rect -> rect.p.y +. rect.h/.2.);
         ]]
       in
       (*> goto should change 'area' over time*)
@@ -379,12 +379,10 @@ module Render = struct
           txt @@ info.label;
           make_anim anim "font-size" (fun rect ->
             (* (rect.w +. rect.h)/.20. |> Float.to_string *)
-            rect.h/.13. |> Float.to_string
+            rect.h/.13.
           );
-          make_anim anim "x" (fun rect ->
-            rect.p.x |> Float.to_string);
-          make_anim anim "y" (fun rect ->
-            rect.p.y |> Float.to_string);
+          make_anim anim "x" (fun rect -> rect.p.x);
+          make_anim anim "y" (fun rect -> rect.p.y);
         ]]
       in
       make_rect anim @ label
