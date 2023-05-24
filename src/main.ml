@@ -14,9 +14,9 @@ let get_file (file, ty) = match ty with
     in
     CCResult.map_err f @@ Elf.get file
 
-let print_debug ~size ~tree =
+let print_debug ~size ~info =
   Printf.eprintf "treemap size: %Ld \n" size;
-  let ranges = Info.find_ranges tree in
+  let ranges = Info.find_ranges info in
   let compute_range_size acc (start, stop, _) =
     Int64.add acc (Int64.sub stop start)
   in
@@ -49,9 +49,24 @@ module Robur_defaults = struct
   
 end
 
+(*> Note: this heuristic fails if one has many subtrees of equal size*)
+let is_node_big_enough ~filter_small ~size subtree =
+  match filter_small, Info.(subtree.T.value.size) with
+  | _, None | None, _ -> true 
+  | Some min_pct, Some subtree_size ->
+    let pct = Int64.(to_float subtree_size /. to_float size) in
+    pct > min_pct 
+
+let prepare_info_tree ~filter_small info_data =
+  let info = info_data |> Info.import in
+  let size, info = Info.diff_size_tree info in
+  if debug then print_debug ~size ~info;
+  info
+  |> Info.prefix_filename
+  |> Info.cut 2
+  |> Info.partition_subtrees (is_node_big_enough ~size ~filter_small)
+
 (*goto howto add more infos
-  * pass extra infos with opt_all --elfN args (--elf, --elf2, --elf3)
-    * rename infos => infos1, infos2 etc.
   * import all infos like infos1
     * except:
       * infos1 should be changed to not filter nodes away that exist in
@@ -87,33 +102,15 @@ let squarify
   let filter_small = filter_small |> CCOption.or_ ~else_:default_filter_small
   and with_scale = with_scale |> CCOption.or_lazy ~else_:default_with_scale
   in
-  let size, infos = 
-    infos1
-    |> Info.import
-    |> (fun info ->
-      let size, tree = Info.diff_size_tree info in
-      if debug then print_debug ~size ~tree;
-      size, tree
-    )
-  in
-  (*> Note: this heuristic fails if one has many subtrees of equal size*)
-  let node_big_enough subtree =
-    match filter_small, Info.(subtree.T.value.size) with
-    | _, None | None, _ -> true 
-    | Some min_pct, Some subtree_size ->
-      let pct = Int64.(to_float subtree_size /. to_float size) in
-      pct > min_pct 
-  in
-  let infos, excluded_minors =
-    infos
-    |> Info.prefix_filename
-    |> Info.cut 2
-    |> Info.partition_subtrees node_big_enough
-  in
   let override_css = default_css_overrides in
-  (*> goto pass a list of trees from CLI (--elf2, --elf3, ..)*)
+  (*> goto fix correct semantics*)
+  let infos1, excluded_minors = prepare_info_tree ~filter_small infos1 in
+  let infos2, _ = prepare_info_tree ~filter_small infos2 in
+  let infos3, _ = prepare_info_tree ~filter_small infos3 in
+  let infos4, _ = prepare_info_tree ~filter_small infos4 in
+  let trees = [ infos1; infos2; infos3; infos4; ] in
   (*> goto this should become default when it works (i.e. remove 'Treemap.of_trees')*)
-  let treemap = Treemap.Animated.of_trees [ infos ] in
+  let treemap = Treemap.Animated.of_trees trees in
   let html = match with_scale with
     | None -> Treemap.to_html ?override_css treemap
     | Some elf_size ->
