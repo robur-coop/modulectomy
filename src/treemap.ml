@@ -159,6 +159,26 @@ end
 module Render = struct
   open Tyxml
 
+  let nonempty_list_to_list (head, tail) = head :: tail
+
+  let make_values anim extract =
+    let values =
+      anim
+      |> nonempty_list_to_list
+      |> List.map extract in
+    (*> Note: Tyxml is buggy - should be semicolon separated*)
+    let values_str = values |> String.concat ";" in
+    Svg.Unsafe.string_attrib "values" values_str
+
+  let make_anim anim attr extract = Svg.(
+    (*> Note: Tyxml havn't merged my PR fixing this yet*)
+    Svg.Unsafe.node "animate" ~a:[
+      a_attributeName attr;
+      a_dur "4s";
+      make_values anim extract;
+    ] []
+  ) 
+
   let stroke_width = 0.6
 
   let css = sp {|
@@ -267,37 +287,24 @@ module Render = struct
       in
       Svg.(title (txt s))
 
-    let make_border { p ; w ; h } =
+    let make_border anim =
       (* let stroke = exp (-. 1.5 *. float level) in *)
       let stroke = 20. in
       Svg.[
         rect ~a:[
           a_class [scoped_class "border"] ;
-          a_x (p.x, None) ; a_y (p.y, None) ;
-          a_width (w, None) ; a_height (h, None) ;
+          (* a_x (p.x, None) ; *)
+          (* a_y (p.y, None) ; *)
+          (* a_width (w, None) ; *)
+          (* a_height (h, None) ; *)
           a_stroke_width (stroke, None) ;
-        ] []
+        ] [
+          make_anim anim "x" (fun rect -> rect.p.x |> Float.to_string);
+          make_anim anim "y" (fun rect -> rect.p.y |> Float.to_string);
+          make_anim anim "width" (fun rect -> rect.w |> Float.to_string);
+          make_anim anim "height" (fun rect -> rect.h |> Float.to_string);
+        ]
       ]
-
-    let nonempty_list_to_list (head, tail) = head :: tail
-    
-    let make_values anim extract =
-      let values =
-        anim
-        |> nonempty_list_to_list
-        |> List.map extract in
-      (*> Note: Tyxml is buggy - should be semicolon separated*)
-      let values_str = values |> String.concat ";" in
-      Svg.Unsafe.string_attrib "values" values_str
-
-    let make_anim anim attr extract = Svg.(
-      (*> Note: Tyxml havn't merged my PR fixing this yet*)
-      Svg.Unsafe.node "animate" ~a:[
-        a_attributeName attr;
-        a_dur "4s";
-        make_values anim extract;
-      ] []
-    ) 
 
     let make_rect anim =
       Svg.[
@@ -328,48 +335,65 @@ module Render = struct
       a_text_anchor `Start;
     ]
 
-    let leaf ~info (rect_v, anim_rects as anim) =
-      (*goo*)
-      (*goto render anim_rects as animations*)
+    let leaf ~info (rect_v, _anim_rects as anim) =
       (* let angle = -.180.*.tanh (rect_v.h/.rect_v.w)/.Float.pi in
        * let center = rect_v.p.x+.rect_v.w/.2. , rect_v.p.y+.rect_v.h/.2. in *)
       let label =
-        (*> goto animate*)
         Svg.[text ~a:(
           a_class [scoped_class "label"] ::
           a_dominant_baseline `Central ::
           (* a_transform [`Rotate ((angle, None), Some center)] :: *)
-          (a_font_size @@ string_of_float @@ (rect_v.w +. rect_v.h)/.20.) ::
-          a_center_position rect_v;
-        ) [txt @@ info.label] ;
-        ]
+          (* (a_font_size @@ string_of_float @@ (rect_v.w +. rect_v.h)/.20.) :: *)
+          a_text_anchor `Middle ::
+          []
+        ) [
+          txt @@ info.label;
+          make_anim anim "font-size" (fun rect ->
+            (rect.w +. rect.h)/.20. |> Float.to_string);
+          make_anim anim "x" (fun rect ->
+            rect.p.x +. rect.w/.2. |> Float.to_string);
+          make_anim anim "y" (fun rect ->
+            rect.p.y +. rect.h/.2. |> Float.to_string);
+        ]]
       in
-      (*> goto animate*)
+      (*> goto should change 'area' over time*)
       let title = title_of_info info @@ area_of_pos rect_v in
-      (*> goto animate*)
       Svg.g
         ~a:[Svg.a_class (scoped_class "leaf" :: class_from_info info)]
-        (title :: make_rect anim @ label @ (*> goto animate*) make_border rect_v)
+        (title :: make_rect anim @ label @ make_border anim)
 
-    let header_node ~info (rect_v, anim_rects as anim) =
-      let header_pos = {rect_v with h = rect_v.h/.13.} in
+    let header_node ~info anim =
+      (* let header_pos = {rect_v with h = rect_v.h/.13.} in *)
       let label =
         Svg.[text ~a:(
           a_class [scoped_class "header"] ::
           a_dominant_baseline `Hanging ::
-          (a_font_size @@ string_of_float @@ header_pos.h) ::
-          a_left_position rect_v.p;
-        ) [txt @@ info.label] ;
-        ]
+          (* (a_font_size @@ string_of_float @@ header_pos.h) :: *)
+          (* a_left_position rect_v.p; *)
+          [
+            a_dx_list [1.,Some `Px] ;
+            a_text_anchor `Start;
+          ]
+        ) [
+          txt @@ info.label;
+          make_anim anim "font-size" (fun rect ->
+            (* (rect.w +. rect.h)/.20. |> Float.to_string *)
+            rect.h/.13. |> Float.to_string
+          );
+          make_anim anim "x" (fun rect ->
+            rect.p.x |> Float.to_string);
+          make_anim anim "y" (fun rect ->
+            rect.p.y |> Float.to_string);
+        ]]
       in
       make_rect anim @ label
 
-    let node ~info (rect_v, anim_rects as anim) children =
+    let node ~info (rect_v, _anim_rects as anim) children =
       let title = title_of_info info @@ area_of_pos rect_v in
       let header = header_node ~info anim in
       Svg.g
         ~a:[Svg.a_class (scoped_class "node" :: class_from_info info)]
-        (title :: header @ children @ make_border rect_v)
+        (title :: header @ children @ make_border anim)
 
     let list_map_array f a = List.map f @@ Array.to_list a
     let list_flatmap_array f a =
