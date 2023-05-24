@@ -49,7 +49,27 @@ module Robur_defaults = struct
   
 end
 
-let squarify robur_defaults robur_css filter_small with_scale infos =
+(*goto howto add more infos
+  * pass extra infos with opt_all --elfN args (--elf, --elf2, --elf3)
+    * rename infos => infos1, infos2 etc.
+  * import all infos like infos1
+    * except:
+      * infos1 should be changed to not filter nodes away that exist in
+        following anim-trees (and are not filtered away there)
+      * and infos1 should become a union of all infos
+        * where non-existent nodes get zero size
+*)
+(*goto also animate scale*)
+let squarify
+    robur_defaults
+    robur_css
+    filter_small
+    with_scale
+    infos1
+    infos2
+    infos3
+    infos4
+  =
   let default_css_overrides =
     if robur_defaults || robur_css then
       Some Robur_defaults.css_overrides
@@ -68,7 +88,7 @@ let squarify robur_defaults robur_css filter_small with_scale infos =
   and with_scale = with_scale |> CCOption.or_lazy ~else_:default_with_scale
   in
   let size, infos = 
-    infos
+    infos1
     |> Info.import
     |> (fun info ->
       let size, tree = Info.diff_size_tree info in
@@ -122,33 +142,33 @@ module Arg_aux = struct
 
   open Cmdliner 
 
-  let programs_arg =
+  let elf_doc = "Native ELF binaries. Requires the $(b,owee) library. \
+                 For better results, the binary file should have been compiled \
+                 with debug information."
+
+  let elfN_doc = "The same as for `--elf`, but lets you pass ELFs that the \
+                  treemap is animated with. Each --elf<N> argument signifies \
+                  a keyframe in animation. Usecase is to see changes over time \
+                  in similar ELF files."
+  
+  let make_programs_arg ?(doc=`Elf) ~required name =
+    let doc = match doc with
+      | `Elf -> elf_doc
+      | `ElfN -> elfN_doc
+    in
     let flatten x = Term.(const List.flatten $ x) in
     let annot f t =
       let g l = List.map (fun x -> (x, f x)) l in
       Term.(const g $ t) in
     let elf_args =
-      let doc = "Native ELF binaries. Requires the $(b,owee) library. \
-                 For better results, the binary file should have been compiled \
-                 with debug information." in
-      let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." ["elf"] in
+      let i = Arg.info ~doc ~docs:"FORMATS" ~docv:"BIN,..." [ name ] in
       annot (fun _ -> Elf) @@ flatten Arg.(value & opt_all (list file) [] i)
     in
-    let guess_args =
-      let doc = "OCaml compiled files that need to be analyzed. Can be one of \
-                 formats described in $(b,FORMATS). By default, the format is \
-                 guessed."
-      in
-      let i = Arg.info ~doc ~docv:"FILE" [] in
-      annot guess Arg.(value & pos_all file [] i)
-    in
-    let take_all elfs guesses =
-      let l = elfs @ guesses in
-      match l with
-      | [] -> `Help (`Auto, None)
+    let take_all = function
+      | [] when required -> `Help (`Auto, None)
       | l -> `Ok l
     in
-    Term.(ret (const take_all $ elf_args $ guess_args))
+    Term.(ret (const take_all $ elf_args))
 
   let filter_small =
     let doc = "Remove subtrees that are smaller than PCT" in
@@ -177,7 +197,11 @@ let squarify_files
     robur_css
     filter_small
     with_scale
-    files =
+    files1
+    files2
+    files3
+    files4
+  =
   let rec get_all = function
     | [] -> Ok Iter.empty
     | h :: t ->
@@ -186,8 +210,12 @@ let squarify_files
       Iter.append i i'
   in
   try
-    get_all files >|= fun i ->
-    squarify robur_defaults robur_css filter_small with_scale i
+    get_all files1 >>= fun infos1 ->
+    get_all files2 >>= fun infos2 ->
+    get_all files3 >>= fun infos3 ->
+    get_all files4 >|= fun infos4 ->
+    squarify robur_defaults robur_css filter_small with_scale
+      infos1 infos2 infos3 infos4
   with exn ->
     Printexc.print_backtrace stderr;
     Format.eprintf "%s\n%!" (Printexc.to_string exn);
@@ -205,7 +233,10 @@ let main_term =
     $ Arg_aux.robur_css
     $ Arg_aux.filter_small
     $ Arg_aux.with_scale
-    $ Arg_aux.programs_arg
+    $ Arg_aux.make_programs_arg ~required:true "elf"
+    $ Arg_aux.make_programs_arg ~required:false ~doc:`ElfN "elf2"
+    $ Arg_aux.make_programs_arg ~required:false ~doc:`ElfN "elf3"
+    $ Arg_aux.make_programs_arg ~required:false ~doc:`ElfN "elf4"
   )) in
   Cmd.v info term
 
