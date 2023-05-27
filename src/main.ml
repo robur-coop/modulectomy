@@ -65,25 +65,43 @@ let prepare_info_tree ~filter_small info_data =
   |> Info.prefix_filename
   |> Info.cut 2
   |> Info.partition_subtrees (is_node_big_enough ~size ~filter_small)
+  |> fst
 
-(*goto howto add more infos
-  * import all infos like infos1
-    * except:
-      * infos1 should be changed to not filter nodes away that exist in
-        following anim-trees (and are not filtered away there)
-      * and infos1 should become a union of all infos
-        * where non-existent nodes get zero size
-*)
+let prepare_main_info_tree ~filter_small ~infos_anim info_data =
+  let info = info_data |> Info.import in
+  let size, info = Info.diff_size_tree info in
+  if debug then print_debug ~size ~info;
+  let info, excluded = 
+    info
+    |> Info.prefix_filename
+    |> Info.cut 2
+    |> Info.partition_subtrees (is_node_big_enough ~size ~filter_small)
+  in
+  let info =
+    let choose_left x _ = x in
+    let union_left = Info.T.union ~union_value:choose_left in
+    let infos_anim_merged =
+      infos_anim
+      |> List.fold_left union_left Info.T.empty
+      |> Info.T.map (fun data ->
+        let size = data.size |> Option.map (fun _ -> Int64.zero) in
+        { data with size } 
+      )
+    in
+    union_left info infos_anim_merged
+  in
+  info, excluded
+
 (*goto also animate scale*)
 let squarify
     robur_defaults
     robur_css
     filter_small
     with_scale
-    infos1
-    infos2
-    infos3
-    infos4
+    info_data1
+    info_data2
+    info_data3
+    info_data4
   =
   let default_css_overrides =
     if robur_defaults || robur_css then
@@ -103,12 +121,16 @@ let squarify
   and with_scale = with_scale |> CCOption.or_lazy ~else_:default_with_scale
   in
   let override_css = default_css_overrides in
-  (*> goto fix correct semantics*)
-  let infos1, excluded_minors = prepare_info_tree ~filter_small infos1 in
-  let infos2, _ = prepare_info_tree ~filter_small infos2 in
-  let infos3, _ = prepare_info_tree ~filter_small infos3 in
-  let infos4, _ = prepare_info_tree ~filter_small infos4 in
-  let trees = [ infos1; infos2; infos3; infos4; ] in
+  let infos_anim =
+    [ info_data2; info_data3; info_data4 ]
+    |> CCList.flat_map (fun v ->
+      if Iter.is_empty v then [] else
+        [ prepare_info_tree ~filter_small v ]
+    )
+  in
+  let infos1, excluded_minors =
+    prepare_main_info_tree ~filter_small ~infos_anim info_data1 in
+  let trees = infos1 :: infos_anim in
   (*> goto this should become default when it works (i.e. remove 'Treemap.of_trees')*)
   let treemap = Treemap.Animated.of_trees trees in
   let html = match with_scale with
