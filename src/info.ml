@@ -26,7 +26,9 @@ type data = {
   kind : kind ;
   v : Int64.t option ;
 }
+
 let mk ?v ?size ?location kind = { v ; size ; location ; kind }
+
 let coalesce data1 data2 =
   let open CCOption.Infix in
   let size = Int64.add <$> data1.size <*> data2.size in
@@ -89,13 +91,23 @@ module T = struct
   let of_iter l : t =
     Iter.fold (fun t (k,v) -> insert t k v) empty l
 
-  let rec union (T t1) (T t2) =
-    T (SMap.union union_node t1 t2)
-  and union_node _ v1 v2 =
+  let rec union ?(union_value=coalesce) (T t1) (T t2) =
+    T (SMap.union (union_node ~union_value) t1 t2)
+
+  and union_node ?(union_value=coalesce) _ v1 v2 =
     Some {
-      value = coalesce v1.value v2.value ;
+      value = union_value v1.value v2.value ;
       children = union v1.children v2.children ;
     }
+
+  let rec map f (T t) =
+    T (SMap.map (map_node f) t)
+
+  and map_node f v = {
+    value = f v.value;
+    children = map f v.children;
+  }
+  
 end
 
 type t = T.t
