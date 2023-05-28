@@ -111,7 +111,7 @@ let squarify
     if robur_defaults then
       Some Robur_defaults.filter_small
     else None
-  and default_with_scale () = 
+  and default_with_scale () =
     if robur_defaults then
       Some (Robur_defaults.with_scale ())
       (*< todo can this param dependency be represented in Cmdliner DSL?*)
@@ -170,10 +170,13 @@ module Arg_aux = struct
                   a keyframe in animation. Usecase is to see changes over time \
                   in similar ELF files."
   
+  let elf2ref_doc = "The same as for `--elf2` - just another animation keyframe."
+    
   let make_programs_arg ?(doc=`Elf) ~required name =
     let doc = match doc with
       | `Elf -> elf_doc
       | `ElfN -> elfN_doc
+      | `Elf2ref -> elf2ref_doc
     in
     let flatten x = Term.(const List.flatten $ x) in
     let annot f t =
@@ -254,8 +257,8 @@ let main_term =
     $ Arg_aux.with_scale
     $ Arg_aux.make_programs_arg ~required:true "elf"
     $ Arg_aux.make_programs_arg ~required:false ~doc:`ElfN "elf2"
-    $ Arg_aux.make_programs_arg ~required:false ~doc:`ElfN "elf3"
-    $ Arg_aux.make_programs_arg ~required:false ~doc:`ElfN "elf4"
+    $ Arg_aux.make_programs_arg ~required:false ~doc:`Elf2ref "elf3"
+    $ Arg_aux.make_programs_arg ~required:false ~doc:`Elf2ref "elf4"
   )) in
   Cmd.v info term
 
