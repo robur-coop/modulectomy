@@ -30,3 +30,6 @@ build: [
   ["sh" "-ex" "packaging/debian/create_package.sh"] {os-family = "debian"}
 ]
 dev-repo: "git+https://github.com/Drup/modulectomy.git"
+pin-depends: [
+  [ "tree_layout.dev" "git+https://github.com/Drup/tree_layout.git#324d688ceef0dc9ceff89cd042bcb72e93a38dd3" ]
+]
